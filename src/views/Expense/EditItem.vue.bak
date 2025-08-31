@@ -1,0 +1,429 @@
+<template>
+  <div>
+    <v-toolbar
+      color="primary"
+      dark
+      flat
+      height="56"
+    >
+      <v-btn
+        icon
+        goback
+        @click="goback()"
+      >
+        <v-icon>mdi-arrow-left</v-icon>
+      </v-btn>
+      <v-toolbar-title>{{ expenseTypeName }}</v-toolbar-title>
+    </v-toolbar>
+    <v-container fluid>
+      <component
+        :is="componentName"
+        ref="form"
+        :expense-type-i-d="expenseTypeID"
+        :expense-item-i-d="ExpenseItemID"
+        :expense-report-i-d="ExpenseReportID"
+        :cost-center-i-d="CostCenterID"
+        :IsReadOnly="IsReadOnly"
+        @load-expense-item="loadExpenseItem"
+      />
+        } catch (error) {
+          console.error("处理URL联系人数据出错:", error);
+        }
+      }
+        } catch (e) {
+          console.error("Error parsing contact data:", e);
+        }
+      }
+    }
+  },
+  mounted() {
+    // 在组件挂载完成后处理联系人数据
+    this.$nextTick(() => {
+      this.updateContactsFromQuery();
+    });
+  },
+  // 在路由更新时也检查联系人数据
+  beforeRouteUpdate(to, from, next) {
+    next();
+    this.$nextTick(() => {
+      this.updateContactsFromQuery();
+    });
+  }
+};
+</script>s="componentName"
+        ref="form"
+        :expense-type-i-d="expenseTypeID"
+        :expense-item-i-d="ExpenseItemID"
+        :expense-report-i-d="ExpenseReportID"
+        :cost-center-i-d="CostCenterID"
+        :IsReadOnly="IsReadOnly"
+        @load-expense-item="loadExpenseItem"
+      />      
+      <v-expansion-panels
+        accordion
+        class="my-2"
+      >
+        <v-expansion-panel>
+          <template #title>
+            <div class="btnright">
+              Attachments ({{ attachmentsForDisplay.length }})
+            </div>
+          </template>
+          <template #text>
+            <v-list>
+              <v-list-item-group>
+                <template
+                  v-for="(item,index) in attachmentsForDisplay"
+                  :key="item.url"
+                >
+                  <v-divider v-if="index!=0" />
+                  <SlideToDelete
+                    :disable="IsReadOnly"
+                    @delete-line="deleteAttachment(item)"
+                  >
+                    <v-list-item
+                      @click="$refs.imgView.viewAttachment(getAttachmentUrl(item),item.AllowPreview,item.AttachmentID,attachmentsForDisplay)"
+                    >
+                      <template #prepend>
+                        <v-icon>mdi-attachment</v-icon>
+                      </template>
+                      <v-list-item-title>{{ item.AttachmentName }}</v-list-item-title>
+                    </v-list-item>
+                  </SlideToDelete>
+                </template>
+              </v-list-item-group>
+            </v-list>
+          </template>
+        </v-expansion-panel>
+      </v-expansion-panels>
+      <div class="longButton buttonPosition">
+        <ImageViewAndUpload
+          ref="imgUpload"
+          @file-uploaded="onFileUploaded"
+        >
+          <v-btn
+            v-if="!IsReadOnly"
+            :disabled="!EnabledExpenseTypes"
+            color="primary"
+            class="no-uppercase mr-1 mt-2"
+            @click="$refs.imgUpload.fireSelectFile()"
+          >
+            Add Attachment
+            <v-icon end>
+              mdi-file-upload-outline
+            </v-icon>
+          </v-btn>
+        </ImageViewAndUpload>
+        <ViewImage
+          ref="imgView"
+          page="item"
+          :display-delete-btn="!IsReadOnly&&EnabledExpenseTypes"
+          @delete-img="deleteImg"
+        />
+        <v-btn
+          v-if="!IsReadOnly"
+          color="primary"
+          :disabled="!EnabledExpenseTypes||IsDisabledBtn"
+          class="no-uppercase mt-2"
+          @click="save()"
+        >
+          Save
+          <v-icon end>
+            mdi-content-save-outline
+          </v-icon>
+        </v-btn>
+
+        <v-btn
+          v-if="IsReview"
+          color="primary"
+          class="no-uppercase mr-1 mb-4"
+          :disabled="!CanReview"
+          @click="approve(0)"
+        >
+          Approve
+          <v-icon end>
+            mdi-checkbox-marked-circle-outline
+          </v-icon>
+        </v-btn>
+        <v-btn
+          v-if="IsReview"
+          color="primary"
+          class="no-uppercase mb-4"
+          :disabled="!CanReview"
+          @click="approve(1)"
+        >
+          Reject
+          <v-icon end>
+            mdi-close-circle-outline
+          </v-icon>
+        </v-btn>
+      </div>
+      <div class="PlaceHolder" />
+    </v-container>
+  </div>
+</template>
+<script>
+import { defineAsyncComponent } from 'vue';
+import baseUrl from "../../baseUrl";
+import ImageViewAndUpload from "../../components/ImageViewAndUpload";
+import ViewImage from "../../components/ViewImage";
+import SlideToDelete from "../../components/SlideToDelete";
+import tools from "../../plugins/tools";
+export default {
+  name: "EditItem",
+  components: {
+    ImageViewAndUpload,
+    ViewImage,
+    SlideToDelete,
+    ExType_Meal: defineAsyncComponent(() =>
+      import(/* webpackChunkName: "ExType_Meal" */ "./ExpenseType/ExType_Meal")),
+    ExType_MultiItems: defineAsyncComponent(() =>
+      import(
+        /* webpackChunkName: "ExType_MultiItems" */ "./ExpenseType/ExType_MultiItems"
+      )),
+    ExType_CommonPage: defineAsyncComponent(() =>
+      import(
+        /* webpackChunkName: "ExType_CommonPage" */ "./ExpenseType/ExType_CommonPage"
+      )),
+    ExType_MileageRunzheimerRate: defineAsyncComponent(() =>
+      import(
+        /* webpackChunkName: "ExType_MileageRunzheimerRate" */ "./ExpenseType/ExType_MileageRunzheimerRate"
+      )),
+    ExType_MealsEntertainment: defineAsyncComponent(() =>
+      import(
+        /* webpackChunkName: "ExType_MealsEntertainment" */ "./ExpenseType/ExType_MealsEntertainment"
+      )),
+    ExType_RentalCarAirTravel: defineAsyncComponent(() =>
+      import(
+        /* webpackChunkName: "ExType_RentalCarAirTravel" */ "./ExpenseType/ExType_RentalCarAirTravel"
+      ))
+  },
+  data: function() {
+    return {
+      ExpenseItemID: 0,
+      ExpenseReportID: 0,
+      IsReview: false,
+      ReportStatus: null,
+      expenseTypeID: 0,
+      expenseTypeName: "",
+      componentName: "",
+      CostCenterID: 0,
+      ApprovedByManager: false,
+      Rejected: false,
+      attachments: [],
+      EnabledExpenseTypes: true,
+      IsDisabledBtn:false
+    };
+  },
+  computed: {
+    IsReadOnly() {
+      return this.IsReview || !tools.isEditable(this.ReportStatus);
+    },
+    CanReview() {
+      return (
+        this.IsReview &&
+        tools.canReview(this.ReportStatus) &&
+        !this.Rejected &&
+        !this.ApprovedByManager
+      );
+    },
+    attachmentsForDisplay() {
+      return this.attachments.filter(function(item) {
+        return !item.IsDeleted;
+      });
+    },
+    attachmentsForSave() {
+      return this.attachments.filter(function(item) {
+        return (
+          (item.AttachmentID > 0 && item.IsDeleted) ||
+          (item.AttachmentID == 0 && !item.IsDeleted)
+        );
+      });
+    }
+  },
+  created: function() {
+    this.IsReview = this.$route.path.toLowerCase().indexOf("/reviewitem") >= 0;
+    this.expenseTypeID = 0;
+    if (
+      sessionStorage.getItem(tools.data.sessionKey_ItemTypeID) &&
+      sessionStorage.getItem(tools.data.sessionKey_ItemTypeID) != null
+    ) {
+      this.expenseTypeID = parseInt(
+        sessionStorage.getItem(tools.data.sessionKey_ItemTypeID)
+      );
+    }
+    this.expenseTypeName = "";
+    if (
+      sessionStorage.getItem(tools.data.sessionKey_ItemTypeName) &&
+      sessionStorage.getItem(tools.data.sessionKey_ItemTypeName) != null
+    ) {
+      this.expenseTypeName = sessionStorage.getItem(
+        tools.data.sessionKey_ItemTypeName
+      );
+      this.axios.get("/Data/ClearPrefix", {
+        params: { expenseTypeName: this.expenseTypeName }
+      }).then(response => {
+              this.expenseTypeName=response.data;
+          })
+         .catch(error => {
+            console.log(error);
+      });
+    }
+    this.ExpenseItemID = parseInt(this.$route.params.id || 0);
+
+    this.ExpenseReportID = 0;
+    if (
+      sessionStorage.getItem(tools.data.sessionKey_ReportID) &&
+      sessionStorage.getItem(tools.data.sessionKey_ReportID) != null
+    ) {
+      this.ExpenseReportID = parseInt(
+        sessionStorage.getItem(tools.data.sessionKey_ReportID)
+      );
+    }
+    this.CostCenterID = 0;
+    if (
+      sessionStorage.getItem(tools.data.sessionKey_ItemCostCenterID) &&
+      sessionStorage.getItem(tools.data.sessionKey_ItemCostCenterID) != null
+    ) {
+      this.CostCenterID = parseInt(
+        sessionStorage.getItem(tools.data.sessionKey_ItemCostCenterID)
+      );
+    }
+    this.axios.get("/Data/GetEnabledExpenseTypesByExpenseTypeID", {
+        params: { expenseTypeID: this.expenseTypeID }
+      }).then(response => {
+              this.componentName=response.data.ComponentName;
+              if(!response.data.IsEnabledType||response.data.ComponentName=="ExType_CommonPage")
+                this.EnabledExpenseTypes = false;
+          })
+         .catch(error => {
+            console.log(error);
+      });
+
+    tools.getExpenseReport(this.ExpenseReportID, response => {
+      this.ReportStatus = response.ReportStatus;
+    });
+  },
+  methods: {
+    approve(isReject) {
+      if (isReject == 1) {
+        this.$router.push({
+          path: "/Approve",
+          query: {
+            expenseReportID: this.ExpenseReportID,
+            expenseItemID: this.ExpenseItemID,
+            expenseTypeID: this.expenseTypeID,
+            expenseTypeName: this.expenseTypeName,
+            IsApproveItem: 1,
+            IsReject: 1
+          }
+        });
+      } else {
+        this.$axios
+          .post("/ExpenseReport/ApproveItemByManager", {
+            expenseItemID: this.ExpenseItemID
+          })
+          .then(response => {
+            console.log(response);
+            if (response.data.ExpenseItemID > 0) {
+              this.goback(true, response.data, true);
+              tools.alert("Approve successfully.");
+            } else {
+              tools.alert("Failed To Approved Item!", 2000, "error", false);
+            }
+          })
+          .catch(error => {
+            console.log(error);
+          });
+      }
+    },
+    async deleteAttachment(item) {
+      if (
+        await tools.confirm(
+          "Are you sure to delete this file: " + item.AttachmentName + "?"
+        )
+      ) {
+        item.IsDeleted = true;
+      }
+    },
+    async deleteImg(item) {
+      item.IsDeleted = true;
+    },
+    getAttachmentUrl(item) {
+      if (item.AttachmentID > 0) {
+        return `${baseUrl}Attachment/GetImg?id=${item.AttachmentID}&filename=${item.AttachmentName}`;
+      } else {
+        return `${baseUrl}TempFile/${item.AttachmentFileName}`;
+      }
+    },
+    loadExpenseItem(ExpenseItem) {
+      if (!ExpenseItem) return;
+      this.attachments = ExpenseItem.AttchmentList || [];
+      this.ApprovedByManager = ExpenseItem.ApprovedByManager;
+      this.Rejected = ExpenseItem.Rejected;
+    },
+    goback(isSaved, item, isModify) {
+      var url = "";
+      if (this.ExpenseItemID > 0 || isSaved) {
+        url = this.IsReview ? "Review" : "Edit";
+        url = `/${url}/${this.ExpenseReportID}`;
+        tools.clearItemSession();
+
+        if (isSaved) {
+          tools.updateExpenseItem(item, isModify);
+        }
+      } else {
+        url = `/NewItem/${this.ExpenseReportID}`;
+      }
+
+      this.$router.push({
+        path: url
+      });
+    },
+    updateIsDisabledBtn(isDisabledBtn){
+      this.IsDisabledBtn=isDisabledBtn;
+    },
+    onFileUploaded(fileinfo) {
+      this.attachments.push({
+        AttachmentID: 0,
+        IsDeleted: false,
+        AttachmentName: fileinfo.fileName,
+        AttachmentFileName: fileinfo.SaveFileName,
+        AttachmentThumbName: fileinfo.SaveThumbName,
+        AllowPreview: fileinfo.isImg
+      });
+    },
+    save() {
+      this.$refs.form.save(this.goback, this.attachmentsForSave, this.updateIsDisabledBtn);
+    }
+  }
+};
+</script>
+<style scoped>
+.no-uppercase {
+  text-transform: none;
+}
+.v-text-field {
+  margin-top: 2px;
+  padding-top: 2px;
+}
+.attachmentlink {
+  color: rgba(0, 0, 0, 0.87);
+  text-decoration: none;
+}
+</style>
+<style>
+.buttonPosition {
+  position: fixed;
+  bottom: 10px;
+  width: 100%;
+  right: 3px;
+  z-index: 10;
+}
+.PlaceHolder {
+  height: 50px;
+}
+.clsClose .v-btn__content{
+    font-size: 18px;
+}
+</style>
