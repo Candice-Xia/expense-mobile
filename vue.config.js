@@ -9,8 +9,10 @@ module.exports = {
         vuetify: {
         }
     },
-    publicPath: BASE_URL,
-    outputDir: "./target",//"../WebAPI/Mobile",
+    publicPath: process.env.NODE_ENV === 'production'
+    ? '/expense-mobile/'  // Replace with your repository name
+    : '/',
+    outputDir: 'dist',
     devServer: {
         port: 8080,
         proxy: {
